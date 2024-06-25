@@ -1,7 +1,7 @@
 CFLAGS_COMMON=-Wall -g -lm
 CFLAGS=-O3 $(CFLAGS_COMMON)
 CFLAGS_ASAN=-O1 -fsanitize=address -fno-omit-frame-pointer $(CFLAGS_COMMON)
-SRCS=main.c malloc.c simple_malloc.c
+SRCS=main.c best_fit_malloc.c first_fit_malloc.c common.c
 
 malloc_challenge.bin : ${SRCS} Makefile
 	gcc -o $@ $(SRCS) $(CFLAGS)

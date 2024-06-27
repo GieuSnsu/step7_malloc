@@ -18,7 +18,12 @@ void best_fit_initialize();
 void *best_fit_malloc(size_t size);
 void best_fit_free(void *ptr);
 void best_fit_finalize();
-void test();
+
+// [Best malloc]
+void best_initialize();
+void *best_malloc(size_t size);
+void best_free(void *ptr);
+void best_finalize();
 
 // Vector
 typedef struct object_t {
@@ -254,47 +259,76 @@ void run_challenge(const char *trace_file_name, size_t min_size,
 #define FIRST_CHALLENGE_INDEX 1
 #define LAST_CHALLENGE_INDEX 5
 
-int best_fit_malloc_time_ms[LAST_CHALLENGE_INDEX + 1];
-int best_fit_malloc_utilization_percentage[LAST_CHALLENGE_INDEX + 1];
+int best_malloc_time_ms[LAST_CHALLENGE_INDEX + 1];
+int best_malloc_utilization_percentage[LAST_CHALLENGE_INDEX + 1];
 
 // Print stats
-void print_stats(int challenge_index, stats_t first_fit_stats, stats_t best_fit_stats) {
+void print_stats(int challenge_index, stats_t first_fit_stats, stats_t best_fit_stats,
+                 stats_t best_stats) {
   assert(FIRST_CHALLENGE_INDEX <= challenge_index &&
          challenge_index <= LAST_CHALLENGE_INDEX);
-  printf("====================================================\n");
-  printf("Challenge #%d    | %15s => %15s\n", challenge_index, "first_fit_malloc",
-         "best_fit_malloc");
-  printf("%-16s+ %15s => %15s\n", "---------------", "---------------",
-         "---------------");
+  printf("==========================================================================\n");
+  printf("Challenge #%d    | %16s => %16s => %16s\n", challenge_index, "first_fit_malloc",
+         "best_fit_malloc", "best_malloc");
+  printf("%-16s+ %16s => %16s => %16s\n", "---------------", "----------------",
+         "----------------", "----------------");
   int first_fit_time_ms = (first_fit_stats.end_time - first_fit_stats.begin_time) * 1000;
   int best_fit_time_ms = (best_fit_stats.end_time - best_fit_stats.begin_time) * 1000;
+  int best_time_ms = (best_stats.end_time - best_stats.begin_time) * 1000;
   int first_fit_utilization_percentage =
       (int)(100.0 * (first_fit_stats.allocated_size - first_fit_stats.freed_size) /
             (first_fit_stats.mmap_size - first_fit_stats.munmap_size));
   int best_fit_utilization_percentage =
       (int)(100.0 * (best_fit_stats.allocated_size - best_fit_stats.freed_size) /
             (best_fit_stats.mmap_size - best_fit_stats.munmap_size));
+  int best_utilization_percentage =
+      (int)(100.0 * (best_stats.allocated_size - best_stats.freed_size) /
+            (best_stats.mmap_size - best_stats.munmap_size));
 
-  printf("%16s| %15d => %15d\n", "Time [ms]", first_fit_time_ms, best_fit_time_ms);
-  printf("%16s| %15d => %15d\n", "Utilization [%] ",
-         first_fit_utilization_percentage, best_fit_utilization_percentage);
+  printf("%16s| %16d => %16d => %16d\n", "Time [ms]", first_fit_time_ms, best_fit_time_ms,
+         best_time_ms);
+  printf("%16s| %16d => %16d => %16d\n", "Utilization [%] ",
+         first_fit_utilization_percentage, best_fit_utilization_percentage,
+         best_utilization_percentage);
 
-  best_fit_malloc_time_ms[challenge_index] = best_fit_time_ms;
-  best_fit_malloc_utilization_percentage[challenge_index] = best_fit_utilization_percentage;
+  best_malloc_time_ms[challenge_index] = best_time_ms;
+  best_malloc_utilization_percentage[challenge_index] = best_utilization_percentage;
+}
+
+// run challenges with differnt algorithm
+void run_challenges_n(int n, size_t min_size, size_t max_size) {
+  stats_t first_fit_stats, best_fit_stats, best_stats;
+  char file[22];
+
+  snprintf(file, 22, "trace%d_first_fit.txt", n);
+  run_challenge(file, min_size, max_size, first_fit_initialize, first_fit_malloc,
+                first_fit_free, first_fit_finalize);
+  first_fit_stats = stats;
+
+  snprintf(file, 21, "trace%d_best_fit.txt", n);
+  run_challenge(file, min_size, max_size, best_fit_initialize, best_fit_malloc,
+                best_fit_free, best_fit_finalize);
+  best_fit_stats = stats;
+
+  snprintf(file, 18, "trace%d_best.txt", n);
+  run_challenge(file, min_size, max_size, best_initialize, best_malloc, best_free,
+                best_finalize);
+  best_stats = stats;
+
+  print_stats(n, first_fit_stats, best_fit_stats, best_stats);
 }
 
 void print_score_data() {
   printf("\nChallenge done!\n");
   printf("Please copy & paste the following data in the score sheet!\n");
   for (int i = FIRST_CHALLENGE_INDEX; i <= LAST_CHALLENGE_INDEX; i++) {
-    printf("%d,%d,", best_fit_malloc_time_ms[i], best_fit_malloc_utilization_percentage[i]);
+    printf("%d,%d,", best_malloc_time_ms[i], best_malloc_utilization_percentage[i]);
   }
   printf("\n");
 }
 
 // Run challenges
 void run_challenges() {
-  stats_t first_fit_stats, best_fit_stats;
 
 #ifdef ENABLE_MALLOC_TRACE
   printf(
@@ -306,50 +340,12 @@ void run_challenges() {
   run_challenge(NULL, 128, 128, first_fit_initialize, first_fit_malloc, first_fit_free,
                 first_fit_finalize);
 
-  // Challenge 1:
-  run_challenge("trace1_first_fit.txt", 128, 128, first_fit_initialize, first_fit_malloc,
-                first_fit_free, first_fit_finalize);
-  first_fit_stats = stats;
-  run_challenge("trace1_best_fit.txt", 128, 128, best_fit_initialize, best_fit_malloc, best_fit_free,
-                best_fit_finalize);
-  best_fit_stats = stats;
-  print_stats(1, first_fit_stats, best_fit_stats);
-
-  // Challenge 2:
-  run_challenge("trace2_first_fit.txt", 16, 16, first_fit_initialize, first_fit_malloc,
-                first_fit_free, first_fit_finalize);
-  first_fit_stats = stats;
-  run_challenge("trace2_best_fit.txt", 16, 16, best_fit_initialize, best_fit_malloc, best_fit_free,
-                best_fit_finalize);
-  best_fit_stats = stats;
-  print_stats(2, first_fit_stats, best_fit_stats);
-
-  // Challenge 3:
-  run_challenge("trace3_first_fit.txt", 16, 128, first_fit_initialize, first_fit_malloc,
-                first_fit_free, first_fit_finalize);
-  first_fit_stats = stats;
-  run_challenge("trace3_best_fit.txt", 16, 128, best_fit_initialize, best_fit_malloc, best_fit_free,
-                best_fit_finalize);
-  best_fit_stats = stats;
-  print_stats(3, first_fit_stats, best_fit_stats);
-
-  // Challenge 4:
-  run_challenge("trace4_first_fit.txt", 256, 4000, first_fit_initialize,
-                first_fit_malloc, first_fit_free, first_fit_finalize);
-  first_fit_stats = stats;
-  run_challenge("trace4_best_fit.txt", 256, 4000, best_fit_initialize, best_fit_malloc, best_fit_free,
-                best_fit_finalize);
-  best_fit_stats = stats;
-  print_stats(4, first_fit_stats, best_fit_stats);
-
-  // Challenge 5:
-  run_challenge("trace5_first_fit.txt", 8, 4000, first_fit_initialize, first_fit_malloc,
-                first_fit_free, first_fit_finalize);
-  first_fit_stats = stats;
-  run_challenge("trace5_best_fit.txt", 8, 4000, best_fit_initialize, best_fit_malloc, best_fit_free,
-                best_fit_finalize);
-  best_fit_stats = stats;
-  print_stats(5, first_fit_stats, best_fit_stats);
+  // Run scored challenges
+  run_challenges_n(1, 128, 128);
+  run_challenges_n(2, 16, 16);
+  run_challenges_n(3, 16, 128);
+  run_challenges_n(4, 256, 4000);
+  run_challenges_n(5, 8, 4000);
 
 #ifdef ENABLE_MALLOC_TRACE
   printf(
@@ -394,9 +390,6 @@ int main(int argc, char **argv) {
   printf("Welcome to the malloc challenge!\n");
   printf("size_of(uint8_t *) = %ld\n", sizeof(uint8_t *));
   printf("size_of(size_t) = %ld\n", sizeof(size_t));
-  printf("Running tests...\n");
-  test();
-  printf("Finished!\n\n");
   run_challenges();
   return 0;
 }
